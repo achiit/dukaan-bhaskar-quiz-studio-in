@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>क्विज़ स्टूडियो – किसी भी PDF से क्विज़</title>
+<style>
+:root{--ink:#14213d;--paper:#f2f5fa;--card:#fff;--line:#d5dbe6;--ok:#1b7f4b;--okbg:#e3f4ea;--bad:#c0392b;--badbg:#fbe9e7;--accent:#2f4b8a;--mute:#5d6a82}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:"Noto Sans Devanagari","Mangal","Nirmala UI","Kohinoor Devanagari",system-ui,sans-serif;line-height:1.6}
+header{position:sticky;top:0;z-index:5;background:var(--ink);color:#fff;padding:10px 14px}
+.top{display:flex;gap:8px;align-items:center;margin-bottom:6px}
+.top select{flex:1;min-width:0;font:inherit;font-size:14px;padding:6px 8px;border-radius:6px;border:0;background:#fff;color:var(--ink)}
+.top button{font:inherit;font-size:13px;padding:6px 10px;border-radius:6px;border:1px solid rgba(255,255,255,.5);background:transparent;color:#fff;cursor:pointer;white-space:nowrap}
+.stats{display:flex;gap:8px;font-size:14px}
+.stats span{flex:1;text-align:center;padding:3px 0;border-radius:6px;background:rgba(255,255,255,.12)}
+.stats .r{background:var(--ok)}.stats .w{background:var(--bad)}
+main{max-width:640px;margin:0 auto;padding:14px}
+.bar{height:5px;background:var(--line);border-radius:3px;margin-bottom:12px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent);width:0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px}
+.qno{font-size:13px;color:var(--mute);margin-bottom:4px}
+.q{font-size:19px;font-weight:600;margin:0 0 14px;white-space:pre-wrap}
+.opt{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;font:inherit;font-size:17px;background:#fff;border:1.5px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:8px;cursor:pointer;color:var(--ink)}
+.opt:focus-visible,button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.opt b{min-width:26px;color:var(--accent)}
+.opt.ok{background:var(--okbg);border-color:var(--ok)}
+.opt.bad{background:var(--badbg);border-color:var(--bad)}
+.opt[disabled]{cursor:default}
+.verdict{margin:10px 0 0;font-size:15px;font-weight:600}
+.verdict.ok{color:var(--ok)}.verdict.bad{color:var(--bad)}
+.nav{display:flex;gap:8px;margin-top:14px}
+button.btn{flex:1;font:inherit;font-size:15px;padding:10px;border-radius:8px;border:1.5px solid var(--accent);background:#fff;color:var(--accent);cursor:pointer}
+button.btn.primary{background:var(--accent);color:#fff}
+button.btn:disabled{opacity:.4;cursor:default}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(42px,1fr));gap:6px;margin-top:12px}
+.grid button{font:inherit;font-size:13px;padding:6px 0;border-radius:6px;border:1px solid var(--line);background:#fff;cursor:pointer;color:var(--ink)}
+.grid .ok{background:var(--ok);color:#fff;border-color:var(--ok)}
+.grid .bad{background:var(--bad);color:#fff;border-color:var(--bad)}
+.grid .cur{outline:2px solid var(--accent)}
+.sum{text-align:center}
+.sum .big{font-size:40px;font-weight:700;margin:4px 0}
+.row3{display:flex;gap:8px;margin:12px 0}
+.row3 div{flex:1;border-radius:8px;padding:8px;font-size:14px}
+.row3 b{display:block;font-size:24px}
+.wrong-item{border-top:1px solid var(--line);padding:10px 0;font-size:15px}
+.wrong-item small{color:var(--mute);display:block}
+.hide{display:none}
+details summary{cursor:pointer;color:var(--accent);font-size:14px;margin-top:12px}
+/* upload panel */
+.up h2{font-size:18px;margin:0 0 4px}
+.up p.sub{margin:0 0 12px;font-size:14px;color:var(--mute)}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:14px;font-weight:600;margin-bottom:4px}
+.field select,.field input[type=number],.field input[type=text]{width:100%;font:inherit;font-size:15px;padding:8px;border:1.5px solid var(--line);border-radius:8px;background:#fff;color:var(--ink)}
+.drop{display:block;border:2px dashed var(--accent);border-radius:10px;padding:18px 10px;text-align:center;cursor:pointer;color:var(--accent);background:#f7f9fd;font-size:15px}
+.drop.has{border-style:solid;background:var(--okbg);color:var(--ok)}
+.drop input{display:none}
+.msg{font-size:14px;margin-top:10px;padding:8px 10px;border-radius:8px;background:#eef2fa}
+.msg.err{background:var(--badbg);color:var(--bad)}
+.prog{height:8px;background:var(--line);border-radius:4px;overflow:hidden;margin-top:8px}
+.prog i{display:block;height:100%;background:var(--accent);width:0;transition:width .3s}
+@media (prefers-reduced-motion:reduce){.prog i{transition:none}}
+</style>
+</head>
+<body>
+<header>
+  <div class="top">
+    <select id="setSel" aria-label="क्विज़ चुनें"></select>
+    <button id="newBtn">+ नया PDF</button>
+  </div>
+  <div class="stats"><span class="r">सही: <b id="sr">0</b></span><span class="w">गलत: <b id="sw">0</b></span><span>बाकी: <b id="sl">0</b></span></div>
+</header>
+
+<main>
+  <!-- PDF upload section -->
+  <section id="upPanel" class="card up hide" style="margin-bottom:14px">
+    <h2>किसी भी PDF से क्विज़ बनाएँ</h2>
+    <p class="sub">PDF चुनिए, बाकी Claude कर देगा। बना हुआ क्विज़ ऊपर वाली लिस्ट में जुड़ जाएगा।</p>
+
+    <label class="drop" id="drop" for="pdfIn"><span id="dropTxt">PDF चुनने के लिए यहाँ दबाएँ (10 MB तक)</span><input type="file" id="pdfIn" accept="application/pdf,.pdf"></label>
+
+    <div class="field" style="margin-top:12px">
+      <label for="mode">PDF में क्या है?</label>
+      <select id="mode">
+        <option value="extract">PDF में पहले से सवाल (MCQ) दिए हैं</option>
+        <option value="generate">PDF में पाठ/नोट्स हैं, नए सवाल बनाओ</option>
+      </select>
+    </div>
+    <div class="field" id="cntBox">
+      <label for="cnt">कितने सवाल चाहिए?</label>
+      <select id="cnt"><option>10</option><option selected>20</option><option>30</option><option>50</option></select>
+    </div>
+    <div class="field" id="diffBox">
+      <label for="diff">कठिनाई</label>
+      <select id="diff"><option value="easy">आसान</option><option value="medium" selected>मध्यम</option><option value="hard">कठिन</option></select>
+    </div>
+    <div class="field">
+      <label for="qname">क्विज़ का नाम (वैकल्पिक)</label>
+      <input type="text" id="qname" placeholder="जैसे: इतिहास अध्याय 3">
+    </div>
+    <div class="nav" style="margin-top:0">
+      <button class="btn primary" id="goBtn" disabled>क्विज़ बनाओ</button>
+      <button class="btn" id="stopBtn" disabled>रोकें</button>
+    </div>
+    <div class="prog hide" id="prog"><i id="progBar"></i></div>
+    <div class="msg hide" id="msg"></div>
+  </section>
+
+  <div id="quizWrap">
+    <div class="bar"><i id="bar"></i></div>
+    <div id="quiz" class="card"></div>
+    <div class="nav">
+      <button class="btn" id="prev">पिछला</button>
+      <button class="btn primary" id="next">अगला</button>
+    </div>
+    <details>
+      <summary>सभी प्रश्नों पर जाएँ</summary>
+      <div class="grid" id="grid"></div>
+    </details>
+    <div class="nav"><button class="btn" id="resBtn">रिज़ल्ट देखें</button><button class="btn" id="resetBtn">फिर से शुरू करें</button></div>
+    <div id="result" class="card hide" style="margin-top:14px"></div>
+    <div class="nav"><button class="btn" id="delBtn" style="border-color:var(--bad);color:var(--bad)">यह क्विज़ हटाएँ</button></div>
+  </div>
+</main>
+
+<script>
+// ---------- बिल्ट-इन सेट: PDF की Answer Key के अनुसार ----------
+const BUILTIN=[
+["निम्नलिखित में कौन सा वर्ण स्त्रीलिंग नहीं है?",["इ","ई","ॠ","ऊ"],3],
+["निम्नलिखित व्यंजनों में से किस व्यंजन का उच्चारण तालु से होता है?",["क","ढ","छ","म"],2],
+["लुंठित ध्वनि है-",["ण","ध","ङ","र"],3],
+["ओष्ठ्य, स्पर्श व्यंजन, अल्पप्राण, अघोष वर्ण कौन सा है?",["प","द","ध","फ"],0],
+["एक ही ध्वनि का द्वित्व हो जाने पर वह क्या कहलाती है?",["संपृक्त ध्वनि","द्वित ध्वनि","संयुक्त ध्वनि","युग्मक"],3],
+["'य' किस प्रकार की ध्वनि है?",["तालव्य","कण्ठ्य","दंतोष्ठ्य","कंठोष्ठ्य"],0],
+["उच्चारण की दृष्टि से 'व' है-",["ओष्ठ्य","कंठतालव्य","दंतोष्ठ्य","कंठोष्ठ्य"],2],
+["हिन्दी वर्णमाला में स्वरों की संख्या कितनी है?",["13","10","11","12"],2],
+["'ऐ' के उच्चारण में ........ और ........ की सहायता ली जाती है-",["दन्त, ओष्ठ","कंठ, तालु","दन्त, तालु","ओष्ठ, तालु"],1],
+["च वर्ग ध्वनियाँ किस वर्ग में आती हैं?",["दंत्य","वर्त्स्य","कंठ्य","तालव्य"],3],
+["वर्णमाला का कौन-सा अक्षर पुल्लिंग नहीं है?",["अ, प","च, ट","ज, आ","इ, ई"],3],
+["जिन वर्णों का उच्चारण स्वतंत्र होता है उसे कहते हैं-",["व्यंजन","व्याकरण","बोली","स्वर"],3],
+["द् + अ + क् + ष् + अ = ?",["दकष","ढाग","दकश","दक्ष"],3],
+["'ढ' वर्ण का उच्चारण स्थान ........ है और वर्ग है-",["ट वर्ग, चौथा","ट वर्ग, दूसरा","त वर्ग, चौथा","ट वर्ग, तीसरा"],0],
+["लिपि चिह्नों के क्रमबद्ध समूह को क्या कहते हैं?",["वर्ण समूह","वर्णमाला","अक्षर","वर्ण"],1],
+["हिन्दी भाषा में ह्रस्व स्वरों की संख्या कितनी है?",["दो","सात","ग्यारह","चार"],3],
+["ऐसी कौन-सी दो मात्राएँ हैं जिनका प्रयोग तो किया जाता है किन्तु उनका समावेश 'स्वर' में नहीं किया जाता है?",["अँ, अॅ","ॠ, उ","अं, अः","आ, इ"],2],
+["उच्चारण की दृष्टि से 'सम्बन्ध' ध्वनि का कौन-सा वर्गीकरण है?",["संयुक्त ध्वनि","द्वित्व ध्वनि","युग्मक ध्वनि","सम्पृक्त ध्वनि"],3],
+["किस स्वर के उच्चारण में दीर्घ स्वर से भी अधिक समय लगता है?",["ह्रस्व","प्लुत","अनुस्वार","अनुनासिक"],1],
+["वर्णमाला में स्पर्श व्यंजनों की संख्या कितनी है?",["30","20","25","35"],2],
+["स्वर 'ए-ऐ' का उच्चारण स्थान कौन सा है?",["कंठ तालव्य","दंतोष्ठ","ओष्ठ","कंठोष्ठ"],0],
+["हिन्दी शब्दकोश में 'क' के बाद कौन-सा व्यंजन दिखाई देता है?",["ख","क्ष","च","ज्ञ"],0],
+["भाषा की सार्थक लघुत्तम इकाई किसे माना जाता है?",["मात्रा","शब्द","अर्थ","वर्ण"],1],
+["निम्न में दंत्य वर्ण कौन सा है?",["ट","स","ह","प"],1],
+["निम्न में अनुनासिक वर्ण कौन सा है?",["थ","म","ब","प"],1],
+["निम्न में कौन-सा वर्ण घोष है?",["ग","च","ख","क"],0],
+["'ल' और 'स' का उच्चारण किस स्थान से होता है?",["ओष्ठ्य","तालव्य","दंत्य","कंठ्य"],2],
+["इनमें कौन सी देवनागरी की वर्ण ध्वनि नहीं है?",["कंठ ध्वनि","दन्तोष्ठ्य","ग्रीवा ध्वनि","मूर्धा ध्वनि"],2],
+["किस व्यंजन का उच्चारण स्थान तालव्य है?",["म","झ","ग","ख"],1],
+["जिन ध्वनियों की गणना न स्वर में की जाती है न व्यंजन में, उसे क्या कहते हैं?",["अयोगवाह","अंतस्थ","उष्म","आगत"],0],
+["स्वर तंत्रियों के आधार पर व्यंजनों को कितने वर्गों में बाँटा गया है?",["एक","चार","तीन","दो"],3],
+["प्रत्येक शब्द की वर्तनी के सभी वर्णों को उसी क्रम में अलग-अलग दिखाना क्या कहलाता है?",["वर्ण-विच्छेद","संधि","संधि-विच्छेद","वर्ण संयोजन"],0],
+["स्वरों का उच्चारण-",["अनुनासिक की सहायता से होता है","बिना किसी की सहायता से होता है","व्यंजनों की सहायता से होता है","अनुस्वार की सहायता से होता है"],1],
+["निम्न में कौन सा शब्द 'स्वर का वर्गीकरण' नहीं है?",["ह्रस्व","द्वित्व","प्लुत","संयुक्त"],1],
+["निम्न में से कौन-सा शब्द 'प्रयत्न और उच्चारण' के आधार पर व्यंजन का वर्गीकरण नहीं है?",["उष्म","उत्क्षिप्त","पार्श्विक","सघोष"],3],
+["जिन स्वरों के उच्चारण में दो मात्रा का समय लगता है या ह्रस्व से दोगुना समय लगता है, उनको कहते हैं-",["लघु स्वर","मूल स्वर","प्लुत स्वर","गुरु स्वर"],3],
+["जिस व्यंजन ध्वनि के उच्चारण के समय स्वर-तंत्री में कम्पन होता है, उच्चारण स्थान के आधार पर ध्वनियों के वर्गीकरण में उसका क्या स्थान है?",["वर्त्स्य","काकल्य","कंठ्य","मूर्धन्य"],1],
+["वर्णों के व्यवस्थित समूह को क्या कहा जाता है?",["वर्णमाला","शब्द भण्डार","वर्णसमूह","इनमें से कोई नहीं"],0],
+["'क्ष' वर्ण किन दो वर्णों के मेल से बनता है?",["क् + श","क् + ष","क् + स","क् + न"],1],
+["निम्न में से संयुक्त स्वर कौन सा है?",["ऊ","ई","औ","आ"],2],
+["स्पर्श व्यंजन, कंठ्य ध्वनि, अघोष और महाप्राण ध्वनि है-",["ख","घ","ग","क"],0],
+["कंठतालव्य कौन सा है?",["ए, ऐ","र, ष","अ, आ","उ, ऊ"],0],
+["सभी महाप्राण वर्णों वाला वर्ग है-",["ध, च, ञ","च, द, घ","ख, छ, ठ","म, श, ध"],2],
+["जब एक ध्वनि का द्वित्व हो जाए, तब वह क्या कहलाता है?",["युग्मक ध्वनियाँ","संयुक्त ध्वनियाँ","संपृक्त ध्वनियाँ","पारस्परिक ध्वनियाँ"],0],
+["दन्त्योष्ठ्य ध्वनि कौन सी है?",["य","व","र","फ"],1],
+["सभी स्पर्श व्यंजन कौन से वर्ग में हैं?",["क, च, प, द","ह, श, र, ब","य, श, द, र","क, र, ल, ह"],0],
+["अर्द्ध विवृत्त स्वर है-",["आ","ए","ऐ","ऊ"],2],
+["जिनकी ध्वनि केवल मुख से निकलती है, वे हैं-",["वृत्ताकार स्वर","निरनुनासिक स्वर","संवृत स्वर","अनुनासिक स्वर"],1],
+["अंतस्थ और ऊष्म वर्ण कितने हैं?",["7","6","8","9"],2],
+["'र' का विवरण है-",["वर्त्स्य, लुंठित, सघोष, अल्पप्राण व्यंजन","वर्त्स्य, संघर्षी, अघोष, अल्पप्राण व्यंजन","वर्त्स्य, स्पर्श, सघोष, महाप्राण व्यंजन","वर्त्स्य, पार्श्विक, सघोष, महाप्राण व्यंजन"],0],
+["काकल्य वर्ण कौन-सा है?",["य","स","ह","श"],2],
+["'य' का उच्चारण स्थान है-",["तालु","मूर्धा","दाँत","ओष्ठ्य"],0],
+["निम्नलिखित में से कौन से व्यंजन महाप्राण हैं?",["त, द, म, प","ज्ञ, ग, च, ज","य, र, ल, व","श, ष, स, ह"],3],
+["स्पर्श, दन्त्य, अघोष और महाप्राण वर्ण कौन सा है?",["भ","थ","फ","छ"],1],
+["केवल मुँह से बोले जाने वाले सस्वर वर्णों को क्या कहते हैं?",["विसर्ग","अनुस्वार","अनुनासिक","निरनुनासिक"],3],
+["निम्नलिखित में से कौन से व्यंजन तालव्य व्यंजन कहलाते हैं?",["त, थ, द, ध","च, छ, ज, झ","प, फ, ब, भ","क, ख, ग, घ"],1],
+["किसके उच्चारण में कंठ और नासिका स्थान से मदद ली जाती है?",["ङ","ञ","न","फ"],0],
+["किसके उच्चारण में वर्त्स्य की सहायता ली जाती है?",["ष","श","स","भ"],2],
+["'त' और 'द' को उच्चारण स्थल के आधार पर क्या कहते हैं?",["दन्त्य","दंतोष्ठ्य","मूर्धन्य","ओष्ठ्य"],0],
+["निम्न में अंतस्थ व्यंजन कौन सा है?",["न","ल","घ","त"],1],
+["निम्न में अघोष वर्ण कौन सा है?",["ट","द","ढ़","ड"],0],
+["निम्न में महाप्राण है-",["ट","उ","ऊ","ठ"],3],
+["मूर्धन्य, स्पर्श, सघोष, नासिक्य, अल्पप्राण व्यंजन कौन सा है?",["ङ","ञ","ण","म"],2],
+["निम्न में अनुनासिक वर्ण कौन सा है?",["ग","प","ण","ट"],2],
+["निम्न में मूर्धन्य ध्वनि है?",["ढ","न","त","झ"],0],
+["उच्चारण स्थान के आधार पर निम्नलिखित में से 'दन्त्य' है-",["प","म","उ","न"],3],
+["निम्न में दीर्घ स्वर कौन-सा है?",["अ","उ","आ","इ"],2],
+["'ह' का उच्चारण स्थान है?",["कंठ","ओठ","तालु","दंत"],0],
+["अन्तस्थ व्यंजन कौन से वर्ग में हैं?",["श, ष, ह","य, र, ल, व","क, ज, फ","ट, ज, ख"],1],
+["कौन से वर्ग के सभी व्यंजन अल्पप्राण हैं?",["ह, म, क","क, च, त","फ, व, ख","द, घ, ट"],1],
+["ओठों की आकृति के आधार पर निम्नलिखित में से कौन सा अवृत्तमुखी स्वर है?",["ओ","उ","ऊ","इ"],3],
+["जिह्वा के आधार पर स्वर कितने प्रकार के होते हैं?",["6","3","4","2"],1],
+["हिन्दी में ध्वनियाँ कितने प्रकार की होती हैं?",["4","6","8","2"],3],
+["मात्रा के आधार पर स्वर कितने प्रकार के होते हैं?",["3","5","4","2"],0],
+["एक से अधिक वर्णों के मेल को कहते हैं-",["व्यंजन","स्वर","अनुस्वार","अक्षर"],0],
+["जिनका उच्चारण स्वतंत्रता से होता है और जो व्यंजन के उच्चारण में सहायक होते हैं, उसे कहते हैं-",["स्वर","व्यंजन","संज्ञा","विसर्ग"],0],
+["इ, ई, च, छ, ज, झ, ञ आदि का उच्चारण किससे होता है?",["ओष्ठ से","कंठ्य से","तालव्य से","मूर्धन्य से"],2],
+["निम्न में दीर्घ स्वर है? (नोट: ए, ऐ संयुक्त स्वरों की श्रेणी में आते हैं)",["ऐ","इ","ए","ई"],3],
+["निम्न में अन्तःस्थ व्यंजन कौन सा है?",["व","स","ज","ग"],0],
+["निम्न में अल्पप्राण व्यंजन कौन-सा है?",["ठ","घ","ग","ख"],2],
+["निम्न में घोष वर्ण कौन-सा है?",["क","ट","च","ज"],3],
+["निम्न में ओष्ठ्य वर्ण कौन सा है?",["उ","इ","आ","अ"],0],
+["वर्ण तालिका के अनुसार ह्रस्व, दीर्घ और प्लुत क्या है?",["मात्रा","व्यंजन","स्वर","विसर्ग"],2],
+["लिखित भाषा में मूल ध्वनियों के लिए जो चिह्न मान लिए गए हैं, जिस रूप में ये लिखे जाते हैं उसे ........ कहते हैं-",["लिपि","ध्वनि","व्यंजन","स्वर"],0],
+["प, फ, ब, भ, म व्यंजन होते हैं-",["तालव्य","कंठ्य","ओष्ठ्य","दन्त्य"],2],
+["दो व्यंजन जब एक साथ मिलते हैं, तो क्या कहलाते हैं?",["अन्तःस्थ","महाप्राण","अल्पप्राण","संयुक्त व्यंजन"],3],
+["निम्न में अघोष वर्ण कौन सा है?",["ब","प","ग","घ"],1],
+["निम्न में कण्ठ्य वर्ण कौन सा है?",["इ","ई","अ","उ"],2],
+["निम्न में दीर्घ स्वर कौन सा है?",["ए","ऐ","आ","ओ"],2],
+["निम्न में महाप्राण व्यंजन कौन सा है?",["भ","म","त","द"],0],
+["निम्न में अन्तस्थ व्यंजन कौन सा है?",["ट","क","य","च"],2],
+["सघोष वर्ण कौन सा है?",["श","थ","ब","प"],2],
+["उष्म व्यंजन कौन सा है?",["म","न","ज","ह"],3],
+["निम्न में से कौन-सा स्वर कंठतालव्य है?",["ए","औ","ई","आ"],0],
+["जिन स्वरों के उच्चारण में नाक से हवा निकलती है, उन्हें कहते हैं-",["मौखिक स्वर","लुंठित स्वर","निरनुनासिक स्वर","अनुनासिक स्वर"],3],
+["निम्नलिखित में से कौन-सा अन्तःस्थ व्यंजन है?",["च","ट","प","ल"],3],
+["अनुस्वार किसका कार्य करता है?",["पंचम वर्ण का","चन्द्रबिन्दु का","स्वर का","विसर्ग का"],0],
+["निम्नलिखित में से पार्श्विक ध्वनि कौन सी है?",["र","श","ल","च"],2],
+["निम्नलिखित में से कौन सा वर्ण दन्त्य नहीं है?",["ल","च","द","त"],1],
+["हिन्दी स्वरों का वर्गीकरण जब जीभ के भाग के आधार पर किया जाता है तो निम्नलिखित में से कौन सा भेद इसके अंतर्गत नहीं आएगा?",["पश्च स्वर","विवृत्त स्वर","मध्य स्वर","अग्र स्वर"],1],
+["निम्नलिखित में से कौन-सा संयुक्त स्वर नहीं है?",["ओ","ए","ऐ","ऊ"],3],
+["हिन्दी वर्णमाला में अन्तःस्थ व्यंजन कौन से हैं?",["क्ष, त्र, ज्ञ, श्र","श, ष, स, ह","च, छ, ज, झ","य, र, ल, व"],3],
+["हिन्दी वर्णमाला में ऊष्म व्यंजन कौन से हैं?",["त, थ, द, ध","श, ष, स, ह","च, छ, ज, झ","ट, ठ, ड, ढ"],1],
+["हिन्दी भाषा में कुल वर्ण लिपियाँ हैं-",["33","48","52","44"],2],
+["मध्य स्वर कहते हैं-",["अ","ई","उ","इ"],0],
+["निम्न में कंठ्य वर्ण है-",["अ, ह, विसर्ग (:)","इ, य, श","ऌ, स, ल","ॠ, ए, व"],0],
+["निम्न में से कौन-सा व्यंजन स्पर्श संघर्षी है?",["ज","ष","र","ह"],0],
+["'ऐ' के उच्चारण स्थान का नाम है-",["दंत्य","कंठतालव्य","तालव्य","कंठोष्ठ्य"],1],
+["'श' का उच्चारण स्थान है-",["मूर्धा","दन्त","कंठ","तालु"],3],
+["कौन-सी ध्वनि महाप्राण नहीं है?",["घ","ज","झ","ख"],1],
+["भाषा विज्ञान की दृष्टि से 'ऊ' किस प्रकार का स्वर है?",["पश्च संवृत","अग्र विवृत","पश्च विवृत","अग्र संवृत"],0],
+["अघोष वर्ण कौन सा है?",["स","अ","ज","ह"],0],
+["'व' का उच्चारण स्थान है-",["कंठोष्ठ","दन्त","दन्तोष्ठ","ओष्ठ"],2],
+["हिन्दी वर्णमाला में व्यंजनों की संख्या है-",["36","32","33","34"],2],
+["हिन्दी शब्दकोश में 'क्ष' का क्रम किस वर्ण के बाद आता है?",["त्र","ज्ञ","क","छ"],2],
+["कौन-सा ऊष्म व्यंजन नहीं है?",["ग","श","स","ह"],0],
+["संयुक्त व्यंजन 'ज्ञ' बनता है-",["ग + अ","ज् + ञ","क + ग","ग् + न"],1],
+["'व' व्यंजन है-",["अन्तस्थ","अघोष","उष्म","महाप्राण"],0],
+["निम्नलिखित में कौन स्वर नहीं है?",["ए","अ","उ","त्र"],3],
+["इनमें से कौन संयुक्त व्यंजन नहीं है?",["फ","क्ष","ज्ञ","त्र"],0],
+["किस वर्ण का उच्चारण स्थान तालु है?",["ओ","ह","ऐ","छ"],3],
+["निम्न में से कौन-सा व्यंजन संघर्षी है?",["झ","ठ","ह","म"],2],
+["निम्नलिखित में से कौन 'ट' वर्ग में नहीं है?",["ठ","ण","ढ","ध"],3],
+["निम्न में महाप्राण व्यंजन है-",["ज","व","प","घ"],3],
+["निम्नलिखित में से कौन-सा संयुक्त स्वर है?",["ए, ऐ, ऋ","ए, ऐ, ओ, औ","आ, ए, औ","अ, ए, ओ"],1],
+["प्रत्येक वर्ग का दूसरा और चौथा वर्ण क्या कहलाता है?",["उत्क्षिप्त","अनुनासिक","महाप्राण","अल्पप्राण"],2],
+["'ट' वर्ग उच्चारण की दृष्टि से किस प्रकार की ध्वनि है?",["तालव्य","मूर्धन्य","दन्त्य","कण्ठ्य"],1],
+["निम्नलिखित में से कौन सा दीर्घ स्वर है?",["ए","आ","उ","ओ"],1],
+["च, छ, ज, झ, ञ का उच्चारण होता है-",["दन्त्य से","ओष्ठ से","तालु से","मूर्धा से"],2],
+["शब्द की सबसे छोटी इकाई है-",["व्यंजन","स्वर","वर्ण","अयोगवाह"],2],
+["जो वर्ण स्वर की सहायता से बोले जाएँ उन्हें क्या कहा जाता है?",["वर्णमाला","स्वर","व्यंजन","ध्वनियाँ"],2],
+["निम्नलिखित में से किस शब्द में 'ऋ' की मात्रा का उपयोग हुआ है?",["वृष्टि","रिपु","क्रिया","वर्षा"],0],
+["व्यंजन को स्वर रहित लिखने के लिए किस चिह्न का उपयोग किया जाता है?",["हलन्त","अनुस्वार","स्वर","अनुनासिक"],0],
+["भाषा की मूल इकाई है-",["संकेत","वर्णमाला","अक्षर","ध्वनि"],3],
+["शब्द की सबसे छोटी इकाई क्या कहलाती है?",["व्यंजन","अयोगवाह","वर्ण","स्वर"],2],
+["'श' का उच्चारण स्थान है-",["तालु","दंत","मूर्धा","कंठ"],0],
+["वर्णों के कितने भेद हैं?",["दो","दस","आठ","सात"],0],
+["वर्णों के समुदाय को क्या कहते हैं?",["सर्वनाम","क्रिया","अक्षर","वर्णमाला"],3],
+["निम्न में कौन सा वर्ण अघोष है?",["घ","क","ज","ग"],1],
+["कौन से शब्द में 'र' व्यंजन नहीं है?",["क्रम","मातृभूमि","मात्र","मूर्धा"],1],
+["निम्न में तालव्य ध्वनि है-",["श","ट","प","क"],0],
+["स्वर रहित व्यंजन जब स्वर सहित व्यंजन से मिलता है तब क्या कहलाता है? (जैसे - क् + ष = क्ष)",["तालव्य","द्वित्व","स्वरतंत्रीय","संयुक्ताक्षर"],3],
+["कौन-सा व्यंजन नासिका द्वारा उच्चारित होता है?",["ड","ज","द","ण"],3],
+["निम्न में से संयुक्त व्यंजन कौन-सा नहीं है?",["त्र","क्ष","य","ज्ञ"],2],
+["जिनका उच्चारण ऊपर के दाँतों पर जीभ लगाने से होता है, उन्हें क्या कहते हैं?",["दन्त्य","कंठ्य","अनुनासिक","मूर्धन्य"],0],
+["निम्न में से 'उष्म व्यंजन' कौन से हैं?",["श, ष, स","अ, ब, स","य, र, ल","च, छ, ज"],0],
+["'श' ध्वनि का उच्चारण स्थान क्या है?",["तालु","दंत","मूर्धा","दंततालु"],0],
+["'ङ' का उच्चारण स्थान होता है-",["नासिक्य","कंठोष्ठ्य","कंठतालव्य","मूर्धन्य"],0],
+["'ट' वर्ग में किस प्रकार के व्यंजन हैं?",["मूर्धन्य","तालव्य","कंठ्य","दन्त्य"],0],
+["अर्ध स्वर है-",["य, व","इ, उ","ॠ, ष","ऋ, ऌ"],0],
+["'घ' का उच्चारण स्थान कौन-सा है?",["कंठ","दंत","मूर्धा","तालु"],0],
+["'क्ष' वर्ण किसके योग से बना है?",["क् + ष","क् + च","क् + श","क् + छ"],0],
+["श, ष, स ........ के अन्तर्गत आते हैं-",["उष्म","स्पर्श","अन्तस्थ","संयुक्त"],0],
+["निम्नलिखित में अघोष अल्पप्राण ध्वनि कौन-सी है?",["झ","ठ","ज","क, त"],3],
+["निम्नलिखित में असत्य कथन की पहचान कीजिए-",["व्यंजन वर्गों के तीसरे, चौथे और पाँचवें व्यंजन सघोष हैं","व्यंजन वर्गों के पहले और दूसरे व्यंजन अघोष हैं","समस्त स्वर घोष ध्वनियाँ हैं","सभी विसर्ग सघोष हैं"],3],
+["निम्नलिखित व्यंजनों में नासिक्य व्यंजन है-",["ङ्","च्","ढ़","श्"],0],
+["'फ' का उच्चारण स्थान है-",["मूर्धा","ओष्ठ","दन्त","कंठ"],1],
+["इनमें संयुक्त व्यंजन कौन-सा है?",["ड","ड़","ढ़","ज्ञ"],3],
+["हिन्दी वर्णमाला में स्वरों की कुल संख्या कितनी है?",["12","13","10","11"],3],
+["अनुनासिक का संबंध होता है-",["नाक और मुख से","इनमें से कोई नहीं","केवल नाक से","केवल मुख से"],0],
+["'कंठ्य' ध्वनि का उदाहरण है-",["क","त","च","ट"],0],
+["दंत्य-वर्ण, अल्पप्राण, अघोष वर्ण का उदाहरण कौन-सा है?",["च्","ट्","ठ्","त्"],3],
+["निम्नलिखित में अघोष - महाप्राण ध्वनि है-",["ख","क","ड","ध"],0],
+["अन्तःस्थ व्यंजन हैं-",["च, छ, ज, झ","त, थ, द, ध","प, फ, ब, भ","य, र, ल, व"],3],
+["किस समूह में सभी स्वर दीर्घ हैं?",["ई, ए, ऐ, ओ, औ","ऌ, ऋ, आ, ई, ऊ","अ, आ, ऊ, औ, ऐ","अ, आ, इ, ऊ, ऋ"],0],
+["किस समूह के वर्णों का उच्चारण स्थान मूर्धा है?",["श, ञ, च, छ","ष, ऋ, ट, ठ","स, त, थ, द","अ, क, ख, ग"],1],
+["निम्नलिखित में से कौन-सा एक सुमेलित नहीं है?",["'झ' का उच्चारण - तालु से","'ख' का उच्चारण - कंठ से","'ट' का उच्चारण - दंत से","'प' का उच्चारण - ओष्ठ से"],2],
+["य र ल व को कहते हैं-",["अंतस्थ व्यंजन","स्पर्श व्यंजन","ऊष्म व्यंजन","अघोष व्यंजन"],0],
+["कौन-सी दो ध्वनियों को 'अयोगवाह' कहते हैं?",["अनुस्वार और विसर्ग","ह्रस्व स्वर एवं दीर्घ स्वर","अनुनासिक - निरनुनासिक","प्लुत और विसर्ग"],0],
+["इनमें से किस वर्ग में ऊष्म ध्वनियाँ हैं?",["श, ष, स, ह्","व्","ए, ऐ","ॠ, र, द"],0],
+["इनमें से कौन-सी ध्वनियाँ संयुक्त स्वर हैं?",["ऐ, औ","ई, ऊ","ई, ऐ","ऊ, ऐ"],0],
+["निम्नलिखित में कौन-सा वर्ण संयुक्त व्यंजन कहलाता है?",["ॠ","ञ","ङ","श्र"],3],
+["किस वर्ग की सभी ध्वनियाँ मूर्धन्य हैं?",["ख्, छ्, ठ्, थ्, फ्","ट्, ठ्, ड्, ढ्, स्","क्, च्, ट्, त्, प्","ट्, ठ्, ड्, ढ्, ष्"],3],
+["एक शब्द में महाप्राण व्यंजनों का प्रयोग नहीं हुआ है-",["खीझ","झूठ","घाघ","जोगन"],3],
+["निम्नलिखित में कौन-सा वर्ण तालव्य नहीं है?",["क","छ","झ","च"],0],
+["'क्ष' वर्ण किसके योग से बना है?",["क् + छ","क् + क्ष","क् + ष","क् + च"],2],
+["'छ' ध्वनि का उच्चारण स्थान कौन-सा होगा?",["ओष्ठ्य","तालव्य","वत्स्र्य","दन्त्य"],1],
+["इनमें से 'ब' की ध्वनि कौन-सी है?",["ऊष्म","ओष्ठ्य","दन्त्य","तालव्य"],1],
+["साधारणतः हिन्दी लेखन में सबसे अधिक किस विराम चिह्न का प्रयोग होता है?",["प्रश्नवाचक चिह्न","पूर्णविराम चिह्न","कोष्ठक","लाघव निर्देश चिह्न"],1],
+["इनमें से कौन-सा व्यंजन 'संयुक्त व्यंजन' का उदाहरण है?",["ड","झ","ढ","क्ष"],3],
+["इनमें से किसका उच्चारण स्थान 'ओष्ठ' है?",["ग","त","च","प"],3],
+["ओष्ठ्य, अल्पप्राण, घोष वर्ण का उदाहरण कौन-सा है?",["भ्","ब्","प्","फ्"],1],
+["'श' ध्वनि का उच्चारण-स्थान इनमें से कौन-सा है?",["दन्त्य","ओष्ठ्य","मूर्धन्य","तालव्य"],3],
+["य, र, ल, व किस वर्ग के व्यंजन हैं?",["अन्तःस्थ","ऊष्म","तालव्य","ओष्ठ्य"],0],
+["'ट' वर्ग में किस प्रकार के व्यंजन हैं?",["कंठ्य","तालव्य","मूर्धन्य","दन्त्य"],2],
+["कौन-सा वर्ण उच्चारण की दृष्टि से दंत्य नहीं है?",["न","त","ट","द"],2],
+["ओष्ठ्य, दीर्घ स्वर का उदाहरण कौन-सा है?",["उ","इ","ॠ","ऊ"],3],
+["इनमें से 'तालव्य व्यंजन' का उदाहरण कौन-सा है?",["द, ट, ड, ढ","म, प, ज, भ","त, थ, द, ध","च, छ, ज, झ"],3],
+["इनमें से किससे शब्द का आरंभ नहीं होता है?",["फ","ड़","ड","ज"],1],
+["दंत्य-वर्त्स्य, महाप्राण, घोष व्यंजन वर्ण का उदाहरण कौन-सा है?",["छ्","ध्","थ्","ठ्"],1],
+["ग्, ज्, छ्, च्, ट् - इनमें तालव्य, महाप्राण, घोष वर्ण कितने हैं?",["0","3","1","2"],0],
+["मूर्धन्य, ह्रस्व स्वर का उदाहरण कौन-सा है?",["ऋ","ए","उ","इ"],0],
+["इनमें से कौन-सा व्यंजन 'उष्म व्यंजन' है?",["ह","ड","ट","त"],0],
+["इनमें से किन वर्णों को व्यंजन कहा जाता है?",["जिनका उच्चारण स्वरों के वर्णों की सहायता से किया जा सके","जो बलाघात हो","जिनका उच्चारण संभव नहीं","जो कठिनता से उच्चारित हो"],0],
+["इनमें से कौन-से व्यंजन 'अंतःस्थ व्यंजन' हैं?",["यरलव","कखगघ","क्षत्रज्ञश्र","पफबभ"],0],
+["इनमें से किसका उच्चारण-स्थान 'दंत' है?",["ग","प","त","च"],2],
+["जो ध्वनियाँ न स्वर हैं न व्यंजन, इन्हें क्या कहते हैं?",["अस्वर","अस्वर व्यंजन","उभय स्वर","अयोगवाह"],3],
+["'श' का उच्चारण स्थान इनमें से कौन-सा है?",["दंत","मूर्धा","कंठ","तालु"],3],
+["ओष्ठ्य, अल्पप्राण, घोष व्यंजन वर्ण का उदाहरण कौन-सा है?",["फ्","ब्","प्","व्"],1],
+["कंठ्य, अल्पप्राण व्यंजन वर्ण का उदाहरण कौन-सा है?",["ग्","फ्","थ्","घ्"],0],
+["कंठतालव्य, दीर्घ स्वर वर्ण का उदाहरण कौन-सा है?",["ऊ","औ","ॠ","ए"],3],
+["इनमें से 'च' वर्ग के वर्णों का उच्चारण स्थल कौन-सा है?",["दाँत","तालु","कंठ","मूर्धा"],1],
+["इनमें से किस शब्द में 'ऋ' की मात्रा का उपयोग हुआ है?",["वृष्टि","रिपु","क्रिया","वर्षा"],0],
+["इनमें से संवृत स्वर कौन-सा है?",["ओ","ई","औ","अ"],1],
+["मूर्धन्य, महाप्राण, अघोष व्यंजन वर्ण का उदाहरण कौन-सा है?",["छ्","ठ्","ध्","भ्"],1],
+["तालव्य, महाप्राण, अघोष व्यंजन वर्ण का उदाहरण कौन-सा है?",["ठ्","छ्","थ्","झ्"],1],
+["कंठ्य, महाप्राण, घोष व्यंजन वर्ण का उदाहरण कौन-सा है?",["ख्","क्","ङ्","ह्"],3],
+["इनमें से कौन-सा वर्ण अघोष है?",["ड","झ","च","ज"],2],
+["हिन्दी में अल्पप्राण वर्णों की संख्या कितनी है?",["15","30","31","29"],2],
+["मूर्धन्य, अल्पप्राण, घोष व्यंजन वर्ण का उदाहरण कौन-सा है?",["ठ्","ड्","भ्","ध्"],1],
+["ओष्ठ्य, महाप्राण, घोष व्यंजन वर्ण का उदाहरण कौन-सा है?",["व्","भ्","फ्","ठ्"],1],
+["इनमें से कौन-सा व्यंजन 'उष्म' है?",["ज","ष","प","व"],1],
+["मूर्धन्य, अल्पप्राण, अघोष वर्ण का उदाहरण कौन-सा है?",["च्","ट्","ठ्","ढ्"],1],
+["तालव्य, महाप्राण, घोष वर्ण का उदाहरण कौन-सा है?",["घ्","ञ्","झ्","छ्"],2],
+["घ्, ग्, ड्, व्, त् - इनमें कितने अघोष व्यंजन हैं?",["1","4","2","3"],2],
+["कंठ्य, महाप्राण, घोष व्यंजन वर्ण का उदाहरण कौन-सा है?",["थ्","फ्","घ्","ग्"],2],
+["निम्नलिखित में से कौन-सा व्यंजन अघोष है?",["ख","ग","ज","घ"],0],
+["कंठ्य, अल्पप्राण व्यंजन वर्ण का उदाहरण कौन-सा है?",["थ","ध","फ","ङ्"],3],
+["हिन्दी वर्णमाला में व्यंजन वर्णों की संख्या कितनी है?",["25","29","33","31"],2],
+["'ज्ञ' वर्ण किन वर्णों के संयोग से बना है?",["ज् + ञ","ज + न्य","ज + ञ","ज + ध"],0],
+["जिस स्वर के उच्चारण में दो मात्राएँ लगती हैं, उसे क्या कहते हैं?",["संयुक्त स्वर","मूल स्वर","गुरु स्वर","लघु स्वर"],2]
+];
+
+const L=["a","b","c","d","e"];
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+
+let sets=[{id:"builtin",name:"हिन्दी वर्णमाला (221)",Q:BUILTIN,builtin:true}];
+let active="builtin";
+const ansBy={}, curBy={};
+const S=()=>sets.find(s=>s.id===active);
+const ans=()=>ansBy[active]||(ansBy[active]=new Array(S().Q.length).fill(-1));
+
+// ---------- सेव / लोड (सिर्फ़ बनाए हुए क्विज़) ----------
+async function saveSets(){
+  try{ await window.storage.set("custom-sets",JSON.stringify(sets.filter(s=>!s.builtin).map(({id,name,Q})=>({id,name,Q})))); }
+  catch(e){ console.warn("सेव नहीं हो पाया",e); }
+}
+async function loadSets(){
+  try{
+    const r=await window.storage.get("custom-sets");
+    if(r&&r.value){ JSON.parse(r.value).forEach(s=>sets.push(s)); }
+  }catch(e){ /* कोई सेव किया हुआ सेट नहीं */ }
+}
+
+// ---------- क्विज़ इंटरफ़ेस ----------
+function fillSelect(){
+  $("setSel").innerHTML=sets.map(s=>`<option value="${s.id}" ${s.id===active?"selected":""}>${esc(s.name)} (${s.Q.length})</option>`).join("");
+  $("delBtn").classList.toggle("hide",!!S().builtin);
+}
+function stats(){
+  const A=ans(),Q=S().Q; let r=0,w=0;
+  A.forEach((a,i)=>{ if(a>=0){ a===Q[i][2]?r++:w++; } });
+  $("sr").textContent=r;$("sw").textContent=w;$("sl").textContent=Q.length-r-w;
+  $("bar").style.width=(Q.length?(r+w)/Q.length*100:0)+"%";
+  return [r,w];
+}
+function render(){
+  const Q=S().Q,A=ans(),cur=curBy[active]||0;
+  if(!Q.length){ $("quiz").innerHTML="<p>इस क्विज़ में कोई सवाल नहीं है।</p>"; return; }
+  const [q,opts,c]=Q[cur],a=A[cur],done=a>=0;
+  let h=`<div class="qno">प्रश्न ${cur+1} / ${Q.length}</div><p class="q">${esc(q)}</p>`;
+  opts.forEach((o,i)=>{
+    let cls=""; if(done){ if(i===c)cls="ok"; else if(i===a)cls="bad"; }
+    h+=`<button class="opt ${cls}" data-i="${i}" ${done?"disabled":""}><b>(${L[i]})</b><span>${esc(o)}</span></button>`;
+  });
+  if(done) h+= a===c?`<p class="verdict ok">✔ सही उत्तर</p>`:`<p class="verdict bad">✘ गलत — सही उत्तर: (${L[c]}) ${esc(opts[c])}</p>`;
+  $("quiz").innerHTML=h;
+  $("quiz").querySelectorAll(".opt").forEach(b=>b.onclick=()=>{A[cur]=+b.dataset.i;render();drawGrid();});
+  $("prev").disabled=cur===0;$("next").disabled=cur===Q.length-1;
+  stats();
+}
+function drawGrid(){
+  const Q=S().Q,A=ans(),cur=curBy[active]||0;
+  $("grid").innerHTML=Q.map((_,i)=>{
+    const a=A[i];let c=a<0?"":(a===Q[i][2]?"ok":"bad");if(i===cur)c+=" cur";
+    return `<button class="${c}" data-i="${i}">${i+1}</button>`;
+  }).join("");
+  $("grid").querySelectorAll("button").forEach(b=>b.onclick=()=>{curBy[active]=+b.dataset.i;render();drawGrid();window.scrollTo(0,0);});
+}
+function switchSet(id){
+  active=id;$("result").classList.add("hide");fillSelect();render();drawGrid();window.scrollTo(0,0);
+}
+function result(){
+  const Q=S().Q,A=ans(),[r,w]=stats(),left=Q.length-r-w,att=r+w,pct=att?Math.round(r/att*100):0;
+  let h=`<div class="sum"><div class="big">${r} / ${Q.length}</div><div>सही उत्तर ${att?`(हल किए गए प्रश्नों में ${pct}%)`:""}</div>
+  <div class="row3"><div style="background:var(--okbg)"><b>${r}</b>सही</div><div style="background:var(--badbg)"><b>${w}</b>गलत</div><div style="background:#e8ecf3"><b>${left}</b>छोड़े गए</div></div></div>`;
+  if(w){
+    h+=`<h3 style="margin:8px 0">गलत किए गए प्रश्न</h3>`;
+    A.forEach((a,i)=>{ if(a>=0&&a!==Q[i][2]) h+=`<div class="wrong-item">${i+1}. ${esc(Q[i][0])}<small>आपका उत्तर: (${L[a]}) ${esc(Q[i][1][a])}</small><small style="color:var(--ok)">सही उत्तर: (${L[Q[i][2]]}) ${esc(Q[i][1][Q[i][2]])}</small></div>`; });
+    h+=`<div class="nav"><button class="btn primary" id="retryBtn">सिर्फ़ गलत सवाल दोबारा करें</button></div>`;
+  }
+  $("result").innerHTML=h;$("result").classList.remove("hide");
+  const rb=$("retryBtn");
+  if(rb) rb.onclick=async()=>{
+    const wrongQ=Q.filter((_,i)=>A[i]>=0&&A[i]!==Q[i][2]);
+    const id="r"+Date.now();
+    sets.push({id,name:"गलत सवाल – "+S().name.slice(0,25),Q:wrongQ});
+    await saveSets(); switchSet(id);
+  };
+  $("result").scrollIntoView({behavior:"smooth"});
+}
+$("setSel").onchange=e=>switchSet(e.target.value);
+$("prev").onclick=()=>{ if((curBy[active]||0)>0){curBy[active]--;render();drawGrid();window.scrollTo(0,0);} };
+$("next").onclick=()=>{ const c=curBy[active]||0; if(c<S().Q.length-1){curBy[active]=c+1;render();drawGrid();window.scrollTo(0,0);} };
+$("resBtn").onclick=result;
+$("resetBtn").onclick=()=>{ if(confirm("इस क्विज़ के सारे उत्तर मिट जाएँगे। फिर से शुरू करें?")){ ansBy[active]=null; delete ansBy[active]; curBy[active]=0; $("result").classList.add("hide"); render(); drawGrid(); window.scrollTo(0,0);} };
+$("delBtn").onclick=async()=>{
+  if(!confirm("यह क्विज़ हमेशा के लिए हट जाएगा। हटाएँ?"))return;
+  sets=sets.filter(s=>s.id!==active); await saveSets(); switchSet("builtin");
+};
+$("newBtn").onclick=()=>{ $("upPanel").classList.toggle("hide"); window.scrollTo(0,0); };
+
+// ---------- PDF → क्विज़ ----------
+let pdfB64=null,pdfName="",stopFlag=false,busy=false;
+function setMsg(t,err){ const m=$("msg"); m.textContent=t; m.className="msg"+(err?" err":""); if(!t)m.classList.add("hide"); }
+function syncMode(){ const g=$("mode").value==="generate"; $("cntBox").classList.toggle("hide",!g); $("diffBox").classList.toggle("hide",!g); }
+$("mode").onchange=syncMode; syncMode();
+
+$("pdfIn").onchange=e=>{
+  const f=e.target.files[0]; pdfB64=null; $("goBtn").disabled=true;
+  if(!f)return;
+  if(f.size>10*1024*1024){ setMsg("PDF 10 MB से बड़ी है। छोटी फ़ाइल चुनिए या PDF को हिस्सों में बाँट लीजिए।",true); return; }
+  const r=new FileReader();
+  r.onload=()=>{ pdfB64=String(r.result).split(",")[1]; pdfName=f.name.replace(/\.pdf$/i,""); $("dropTxt").textContent="✔ "+f.name; $("drop").classList.add("has"); $("goBtn").disabled=false; setMsg(""); };
+  r.onerror=()=>setMsg("फ़ाइल पढ़ी नहीं जा सकी। दोबारा कोशिश कीजिए।",true);
+  r.readAsDataURL(f);
+};
+
+async function callClaude(prompt){
+  const res=await fetch("https://api.anthropic.com/v1/messages",{
+    method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({
+      model:"claude-sonnet-4-6",max_tokens:1000,
+      system:"You turn PDFs into multiple-choice quizzes. Reply with a JSON array only: no preamble, no markdown fences.",
+      messages:[{role:"user",content:[
+        {type:"document",source:{type:"base64",media_type:"application/pdf",data:pdfB64}},
+        {type:"text",text:prompt}
+      ]}]
+    })
+  });
+  if(!res.ok) throw new Error("API "+res.status);
+  const data=await res.json();
+  return (data.content||[]).map(i=>i.type==="text"?i.text:"").join("");
+}
+function parseQs(txt){
+  let t=txt.replace(/```json|```/g,"").trim();
+  const st=t.indexOf("["); if(st<0)return [];
+  t=t.slice(st);
+  let arr;
+  try{ arr=JSON.parse(t); }
+  catch(e){ // कटे हुए JSON में से पूरे सवाल बचा लो
+    const end=t.lastIndexOf("}"); if(end<0)return [];
+    try{ arr=JSON.parse(t.slice(0,end+1)+"]"); }catch(e2){ return []; }
+  }
+  return arr.filter(x=>x&&typeof x.q==="string"&&Array.isArray(x.o)&&x.o.length>=2&&x.o.length<=5&&Number.isInteger(x.a)&&x.a>=0&&x.a<x.o.length)
+            .map(x=>[x.q.trim(),x.o.map(o=>String(o).trim()),x.a]);
+}
+const SHAPE='Format: [{"q":"question text","o":["option 1","option 2","option 3","option 4"],"a":0}] where "a" is the 0-based index of the correct option.';
+
+async function build(){
+  if(busy||!pdfB64)return;
+  busy=true;stopFlag=false;
+  $("goBtn").disabled=true;$("stopBtn").disabled=false;$("prog").classList.remove("hide");$("progBar").style.width="0";
+  const mode=$("mode").value,target=+$("cnt").value,diff=$("diff").value,B=5;
+  const got=[],seen=new Set();let asked=0,fails=0,batches=0;
+  try{
+    while(!stopFlag){
+      if(mode==="generate"&&got.length>=target)break;
+      if(batches++>=60)break;
+      setMsg(mode==="generate"?`सवाल बन रहे हैं… ${got.length} / ${target}`:`PDF से सवाल निकाले जा रहे हैं… ${got.length} मिले`);
+      let prompt;
+      if(mode==="extract"){
+        prompt=`This PDF contains multiple-choice questions. Skip the first ${asked} questions in PDF order and return the next ${B}. Use the answer key in the PDF when it has one; otherwise work out the correct answer yourself. Keep the original language and wording; if the extracted text looks garbled (broken Devanagari, missing letters), repair it from context. Do not include exam names or source tags. If there are no more questions, return []. ${SHAPE}`;
+      }else{
+        const avoid=got.slice(-40).map(x=>x[0].slice(0,50)).join(" | ");
+        prompt=`Write ${Math.min(B,target-got.length)} new multiple-choice questions based on this PDF's content. Difficulty: ${diff}. Exactly 4 options each, exactly one correct, plausible wrong options, correct option position varied. Use the same language as the PDF. Cover different parts of the document. Do not repeat these earlier questions: ${avoid||"(none yet)"}. ${SHAPE}`;
+      }
+      let qs=[];
+      try{ qs=parseQs(await callClaude(prompt)); }catch(e){ if(++fails>=3)throw e; continue; }
+      if(!qs.length){ if(mode==="extract")break; if(++fails>=3)break; continue; }
+      fails=0; asked+=qs.length;
+      for(const x of qs){ const k=x[0].slice(0,80); if(!seen.has(k)){seen.add(k);got.push(x);} }
+      $("progBar").style.width=(mode==="generate"?Math.min(100,got.length/target*100):Math.min(95,got.length/2.5))+"%";
+    }
+  }catch(e){
+    console.error(e);
+    setMsg("सवाल बनाते समय दिक्कत आई ("+e.message+"). यह सुविधा Claude के अंदर खुली फ़ाइल में ही चलती है। जो सवाल बन चुके हैं, वे नीचे सेव किए गए हैं।",true);
+  }
+  if(got.length){
+    const id="p"+Date.now();
+    sets.push({id,name:$("qname").value.trim()||pdfName||"PDF क्विज़",Q:got});
+    await saveSets(); switchSet(id);
+    $("upPanel").classList.add("hide");
+    setMsg("");
+  }else if(!$("msg").classList.contains("err")){
+    setMsg("PDF से कोई सवाल नहीं बन पाया। अगर PDF स्कैन की हुई फोटो है तो साफ़ फ़ाइल आज़माइए, या दूसरा विकल्प चुनिए।",true);
+  }
+  busy=false;$("goBtn").disabled=false;$("stopBtn").disabled=true;$("prog").classList.add("hide");
+}
+$("goBtn").onclick=build;
+$("stopBtn").onclick=()=>{stopFlag=true;setMsg("रोका जा रहा है…");};
+
+(async()=>{ await loadSets(); fillSelect(); render(); drawGrid(); })();
+</script>
+</body>
+</html>
